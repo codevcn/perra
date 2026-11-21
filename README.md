@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="static/perra.png" width="220" alt="Perra (Persona Radar) Logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="static/perra-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="static/perra-light.svg" />
+    <img src="static/perra.png" width="180" alt="Perra (Persona Radar) Logo" />
+  </picture>
   <h1>Perra (Persona Radar)</h1>
   <p>
     <strong>Collect a dossier on a person by username or identifier across thousands of websites — no API keys required.</strong>

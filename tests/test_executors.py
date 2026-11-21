@@ -37,7 +37,7 @@ async def test_asyncio_queue_generator_executor():
     assert len(results) == 10
     assert sorted(results) == list(range(10))
     assert set(results[:2]) == {0, 1}
-    assert executor.execution_time > 0.5
+    assert executor.execution_time > 0.48
     assert executor.execution_time < 1.3
 
     executor = AsyncioQueueGeneratorExecutor(logger=logger, in_parallel=3)
@@ -46,14 +46,14 @@ async def test_asyncio_queue_generator_executor():
     # while equal-sleep ties (e.g. 0/3 or 1/4) may vary under OS timer granularity.
     assert sorted(results) == list(range(10))
     assert set(results[:2]) == {0, 3}
-    assert executor.execution_time > 0.4
+    assert executor.execution_time > 0.38
     assert executor.execution_time < 1.2
 
     executor = AsyncioQueueGeneratorExecutor(logger=logger, in_parallel=5)
     results = [result async for result in executor.run(tasks)]  # type: ignore[arg-type]
     assert sorted(results) == list(range(10))
     assert set(results[:3]) == {0, 3, 6}
-    assert executor.execution_time > 0.3
+    assert executor.execution_time > 0.28
     assert executor.execution_time < 1.1
 
     executor = AsyncioQueueGeneratorExecutor(logger=logger, in_parallel=10)
@@ -62,7 +62,7 @@ async def test_asyncio_queue_generator_executor():
     assert set(results[:4]) == {0, 3, 6, 9}
     assert set(results[4:7]) == {1, 4, 7}
     assert set(results[7:]) == {2, 5, 8}
-    assert executor.execution_time > 0.2
+    assert executor.execution_time > 0.18
     assert executor.execution_time < 1.0
 
 

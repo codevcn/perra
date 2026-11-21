@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">Perra (Persona Radar) Logo</title>
+  <g id="matrix" fill="#0EA5E9">
+    <circle cx="46.0" cy="54.0" r="6.5"/>
+    <circle cx="46.0" cy="36.5" r="3.6"/>
+    <circle cx="63.5" cy="54.0" r="3.6"/>
+    <circle cx="58.37" cy="66.37" r="2.8"/>
+    <circle cx="46.0" cy="71.5" r="2.8"/>
+    <circle cx="33.63" cy="66.37" r="2.8"/>
+    <circle cx="28.5" cy="54.0" r="2.8"/>
+    <circle cx="33.63" cy="41.63" r="2.8"/>
+    <circle cx="46.0" cy="22.5" r="3.8"/>
+    <circle cx="77.5" cy="54.0" r="3.8"/>
+    <circle cx="73.28" cy="69.75" r="2.9"/>
+    <circle cx="61.75" cy="81.28" r="2.9"/>
+    <circle cx="46.0" cy="85.5" r="2.9"/>
+    <circle cx="30.25" cy="81.28" r="2.9"/>
+    <circle cx="18.72" cy="69.75" r="2.9"/>
+    <circle cx="14.5" cy="54.0" r="2.9"/>
+    <circle cx="18.72" cy="38.25" r="2.9"/>
+    <circle cx="30.25" cy="26.72" r="2.9"/>
+  </g>
+  <g fill="#0EA5E9" stroke="#0EA5E9"><circle cx="71.1" cy="28.9" r="11" fill="none" stroke-width="2.6"/><circle cx="71.1" cy="28.9" r="5.5" stroke="none"/></g>
+</svg>

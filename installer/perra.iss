@@ -42,6 +42,7 @@ WizardStyle=modern
 ChangesEnvironment=yes
 CloseApplications=yes
 RestartApplications=no
+SetupIconFile=..\static\perra.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]

@@ -69,6 +69,7 @@ exe = EXE(
     upx=False,
     console=True,
     disable_windowed_traceback=False,
+    icon='../static/perra.ico',
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,

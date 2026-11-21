@@ -45,6 +45,8 @@ templates_path = ['_templates']
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_js_files = ['perra_search_help.js']
+html_logo = '../../static/perra.png'
+html_favicon = '../../static/perra.ico'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
