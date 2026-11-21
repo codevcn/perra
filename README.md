@@ -46,7 +46,7 @@ Perra is designed for interactive analysts, security researchers, automated pipe
 
 ### Option 1: Windows Installer (Recommended for End Users)
 
-Download `PerraSetup-0.1.0-win64.exe` (and `SHA256SUMS.txt` for verification) from [GitHub Releases](https://github.com/codevcn/perra/releases).
+Download `PerraSetup-0.2.0-win64.exe` (and `SHA256SUMS.txt` for verification) from [GitHub Releases](https://github.com/codevcn/perra/releases).
 
 The installer (`PrivilegesRequired=lowest`):
 1. Installs the PyInstaller `--onedir` distribution to `%LOCALAPPDATA%\Programs\Perra\`.
@@ -59,7 +59,7 @@ The installer (`PrivilegesRequired=lowest`):
 Silent install:
 
 ```powershell
-.\PerraSetup-0.1.0-win64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+.\PerraSetup-0.2.0-win64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 
 Verify installation in a **new** terminal:
@@ -159,6 +159,10 @@ perra torvalds --site GitHub --no-recursion
 # Open the generated HTML report in your default browser once finished
 perra torvalds --site GitHub --no-recursion --open-html
 
+# Re-open the most recently saved HTML report without running a new scan
+perra --open-html
+perra --open-html -fo ./reports
+
 # Disable default HTML report generation (e.g., when streaming JSON only)
 perra torvalds --site GitHub --no-recursion --no-html -J ndjson
 
@@ -228,16 +232,17 @@ User runtime state and caches live in `~/.perra/`:
 - `data.json` — Cached site database downloaded from upstream
 - `autoupdate_state.json` — Database sync state & 24h cooldown
 - `cli_update_state.json` — Non-blocking CLI release check cache
+- `last_html_report.json` — Most recently generated HTML report path (used by standalone `perra --open-html`)
 - `activation.json` — Cached runtime activation credentials/tokens
 
 ---
 
 ## Packaging & Building Installers (Windows)
 
-Build the PyInstaller `--onedir` bundle and compile the Inno Setup 6 installer (`PerraSetup-0.1.0-win64.exe` + `SHA256SUMS.txt`):
+Build the PyInstaller `--onedir` bundle and compile the Inno Setup 6 installer (`PerraSetup-0.2.0-win64.exe` + `SHA256SUMS.txt`):
 
 ```powershell
-# Build both dist\perra\perra.exe (--onedir) and dist\installer\PerraSetup-0.1.0-win64.exe
+# Build both dist\perra\perra.exe (--onedir) and dist\installer\PerraSetup-0.2.0-win64.exe
 .\setup.bat build-all --clean
 
 # Or individual stages:

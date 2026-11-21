@@ -117,7 +117,7 @@ Reports are saved in `./reports/` by default (override with `-fo PATH`). Since H
 | --- | --- | --- |
 | *(default)* / `-H`, `--html` | Self-contained Atlassian Design System HTML UI (`report_<username>_plain.html`): Light/Dark OS theme + manual top-right toggle, Cards & Table views, `Confirmed` / `Similar` / `Errors / Unknown` tabs, instant Top/Bottom scroll buttons | Combined |
 | `--no-html` | Disable default HTML report generation (recommended with `-J ndjson` in tight loops if HTML is unwanted) | Control flag |
-| `--open-html` | Open the generated HTML report in the default browser after completion (automatically suppressed when `--no-progressbar`, `CI`, or `PERRA_NO_OPEN=1` is set — **agents should omit this flag**) | Control flag |
+| `--open-html` | Open the generated HTML report in the default browser after completion, or when run alone (`perra --open-html`, optionally with `-fo PATH`) open the most recently saved HTML report (automatically suppressed when `--no-progressbar`, `CI`, or `PERRA_NO_OPEN=1` is set — **agents should omit this flag**) | Control flag |
 | `-J simple` / `-J ndjson` | JSON or newline-delimited JSON | Per username (best for agents) |
 | `-M`, `--md` | Markdown summary + account details | Combined across all usernames |
 | `-P`, `--pdf` | PDF report (requires `[pdf]` extra / included in installer) | Combined |

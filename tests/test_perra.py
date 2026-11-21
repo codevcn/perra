@@ -409,3 +409,58 @@ def test_should_open_html(args_overrides, env, expected):
         setattr(args, k, v)
 
     assert _should_open_html(args, environ=env) is expected
+
+
+def test_find_latest_html_report_prefers_newest_and_non_graph(tmp_path):
+    from pathlib import Path
+    from perra.perra import (
+        _explicit_folderoutput_passed,
+        _find_latest_html_report,
+        _record_last_html_report,
+    )
+
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    state_file = tmp_path / ".perra" / "last_html_report.json"
+
+    older = reports_dir / "report_alice_plain.html"
+    newer = reports_dir / "report_bob_plain.html"
+    graph = reports_dir / "report_bob_graph.html"
+    older.write_text("<html>old</html>", encoding="utf-8")
+    newer.write_text("<html>new</html>", encoding="utf-8")
+    graph.write_text("<html>graph</html>", encoding="utf-8")
+    os.utime(older, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(newer, ns=(2_000_000_000, 2_000_000_000))
+    os.utime(graph, ns=(3_000_000_000, 3_000_000_000))
+
+    # Prefers newest non-graph report over slightly newer _graph.html
+    assert _find_latest_html_report(reports_dir, state_path=state_file) == newer
+
+    # Recorded state across directories wins if strictly newer than local reports
+    custom_dir = tmp_path / "custom"
+    custom_dir.mkdir()
+    recorded = custom_dir / "report_carol_plain.html"
+    recorded.write_text("<html>carol</html>", encoding="utf-8")
+    os.utime(recorded, ns=(4_000_000_000, 4_000_000_000))
+    _record_last_html_report(recorded, state_path=state_file)
+
+    assert _find_latest_html_report(reports_dir, include_saved_state=True, state_path=state_file).resolve() == recorded.resolve()
+    assert _find_latest_html_report(reports_dir, include_saved_state=False, state_path=state_file) == newer
+
+    # If recorded target was removed, fall back to local reports
+    recorded.unlink()
+    assert _find_latest_html_report(reports_dir, include_saved_state=True, state_path=state_file) == newer
+
+    # If only _graph.html remains, still return it
+    older.unlink()
+    newer.unlink()
+    assert _find_latest_html_report(reports_dir, state_path=state_file) == graph
+
+    # Empty folder -> None
+    graph.unlink()
+    assert _find_latest_html_report(reports_dir, state_path=state_file) is None
+
+    # Explicit -fo CLI detection
+    assert _explicit_folderoutput_passed(["--open-html", "-fo", "out"]) is True
+    assert _explicit_folderoutput_passed(["--open-html", "--folderoutput=out"]) is True
+    assert _explicit_folderoutput_passed(["--open-html"]) is False

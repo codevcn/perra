@@ -3,6 +3,8 @@ Perra (Persona Radar) main module
 """
 
 import asyncio
+from datetime import datetime, timezone
+import json
 import logging
 import os
 import sys
@@ -520,8 +522,9 @@ def setup_arguments_parser(settings: Settings):
         action="store_true",
         dest="open_html",
         default=False,
-        help="Open the generated HTML UI report in the default browser "
-        "(auto-disabled when --no-progressbar or CI env var is set).",
+        help="Open the generated HTML UI report in the default browser, or when "
+        "invoked alone (`perra --open-html`), open the most recently saved HTML "
+        "report (auto-disabled when --no-progressbar, CI, or PERRA_NO_OPEN=1 is set).",
     )
     report_group.add_argument(
         "-X",
@@ -691,6 +694,21 @@ def save_db_safely(db: PerraDatabase, db_file: str, logger) -> bool:
         return False
 
 
+def _should_suppress_browser_open(
+    args: Any, environ: Optional[Mapping[str, str]] = None
+) -> bool:
+    """Return True when launching a browser tab should be suppressed."""
+    if getattr(args, "no_progressbar", False):
+        return True
+    env = os.environ if environ is None else environ
+    if env.get("PERRA_NO_OPEN") == "1":
+        return True
+    ci_val = (env.get("CI") or "").strip().lower()
+    if ci_val and ci_val not in ("0", "false", "no"):
+        return True
+    return False
+
+
 def _should_open_html(
     args: Any, environ: Optional[Mapping[str, str]] = None
 ) -> bool:
@@ -698,15 +716,166 @@ def _should_open_html(
     and not running in a headless/non-interactive (--no-progressbar / CI) session."""
     if not getattr(args, "open_html", False) or not getattr(args, "html", False):
         return False
-    if getattr(args, "no_progressbar", False):
+    return not _should_suppress_browser_open(args, environ=environ)
+
+
+def _launch_browser(file_uri: str, logger: logging.Logger) -> bool:
+    """Open a local report URI in the default web browser without raising."""
+    try:
+        return bool(webbrowser.open(file_uri))
+    except Exception as e:
+        logger.debug('Could not open HTML report in browser: %s', e)
         return False
-    env = os.environ if environ is None else environ
-    if env.get("PERRA_NO_OPEN") == "1":
-        return False
-    ci_val = (env.get("CI") or "").strip().lower()
-    if ci_val and ci_val not in ("0", "false", "no"):
-        return False
-    return True
+
+
+def _get_last_html_state_path() -> Path:
+    """Return path to the user state file storing the latest generated HTML report."""
+    return Path(os.path.expanduser("~/.perra")) / "last_html_report.json"
+
+
+def _record_last_html_report(
+    report_path: Path, state_path: Optional[Path] = None
+) -> None:
+    """Persist the most recently saved HTML report path atomically."""
+    target = state_path or _get_last_html_state_path()
+    try:
+        resolved = report_path.resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = target.with_suffix(target.suffix + ".tmp")
+        payload = {
+            "path": str(resolved),
+            "saved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(tmp_path, target)
+    except OSError:
+        pass
+
+
+def _read_last_html_report(state_path: Optional[Path] = None) -> Optional[Path]:
+    """Return the recorded last HTML report path if it still exists on disk."""
+    target = state_path or _get_last_html_state_path()
+    try:
+        data = json.loads(target.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    raw_path = data.get("path")
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        return None
+    candidate = Path(raw_path)
+    try:
+        return candidate if candidate.is_file() else None
+    except OSError:
+        return None
+
+
+def _explicit_folderoutput_passed(argv: Optional[List[str]] = None) -> bool:
+    """Return True if -fo or --folderoutput was explicitly supplied on the CLI."""
+    tokens = sys.argv[1:] if argv is None else argv
+    return any(
+        token == "-fo"
+        or token == "--folderoutput"
+        or token.startswith("-fo=")
+        or token.startswith("--folderoutput=")
+        for token in tokens
+    )
+
+
+def _find_latest_html_report(
+    report_dir: Path,
+    include_saved_state: bool = True,
+    state_path: Optional[Path] = None,
+) -> Optional[Path]:
+    """Return the newest saved HTML report by mtime from report_dir or user state.
+
+    Standard HTML UI reports (non-*_graph.html) take priority over *_graph.html
+    so combined scans still open the primary interactive dossier UI.
+    """
+    candidates: Dict[Path, Path] = {}
+    if report_dir.is_dir():
+        try:
+            for entry in report_dir.iterdir():
+                if entry.is_file() and entry.suffix.lower() == ".html":
+                    candidates[entry.resolve()] = entry
+        except OSError:
+            pass
+
+    standard = {
+        k: v for k, v in candidates.items() if not v.name.endswith("_graph.html")
+    }
+    if include_saved_state:
+        recorded = _read_last_html_report(state_path=state_path)
+        if recorded is not None and (
+            not recorded.name.endswith("_graph.html") or not standard
+        ):
+            try:
+                candidates[recorded.resolve()] = recorded
+            except OSError:
+                pass
+
+    standard = {
+        k: v for k, v in candidates.items() if not v.name.endswith("_graph.html")
+    }
+    pool = list(standard.values()) if standard else list(candidates.values())
+    if not pool:
+        return None
+
+    best_path: Optional[Path] = None
+    best_key = (-1, "")
+    for item in pool:
+        try:
+            key = (item.stat().st_mtime_ns, str(item))
+        except OSError:
+            continue
+        if key > best_key:
+            best_key = key
+            best_path = item
+    return best_path
+
+
+def _open_latest_html_report(
+    args: Any,
+    logger: logging.Logger,
+    include_saved_state: Optional[bool] = None,
+    state_path: Optional[Path] = None,
+    environ: Optional[Mapping[str, str]] = None,
+) -> int:
+    """Open the most recently saved HTML report for standalone `perra --open-html`."""
+    report_dir = Path(os.getcwd()) / getattr(args, "folderoutput", "reports")
+    use_state = (
+        (not _explicit_folderoutput_passed())
+        if include_saved_state is None
+        else include_saved_state
+    )
+    latest = _find_latest_html_report(
+        report_dir, include_saved_state=use_state, state_path=state_path
+    )
+    if latest is None:
+        print(
+            f"[!] No saved HTML reports found in {report_dir}. "
+            "Run a search first (e.g. 'perra <username>').",
+            file=sys.stderr,
+        )
+        return 1
+
+    resolved = latest.resolve()
+    file_uri = resolved.as_uri()
+    if _should_suppress_browser_open(args, environ=environ):
+        print(
+            f"[-] Latest HTML report: {resolved} ({file_uri}) "
+            "[browser launch skipped in non-interactive/CI mode]"
+        )
+        return 0
+
+    print(f"[-] Opening latest HTML report: {resolved} ({file_uri})")
+    if not _launch_browser(file_uri, logger):
+        print(
+            f"[!] Could not launch browser automatically. Open manually: {file_uri}",
+            file=sys.stderr,
+        )
+    return 0
 
 
 async def main():
@@ -785,6 +954,22 @@ async def main():
                 print(cached_notice, file=sys.stderr)
                 update_notice_shown = True
         spawn_background_update_check(repo=cli_repo, proxy=args.proxy)
+
+    if (
+        getattr(args, "open_html", False)
+        and not args.username
+        and not args.input_file
+        and not args.parse_url
+        and args.web is None
+        and not args.self_check
+        and not args.stats
+        and not args.new_site_to_submit
+        and not args.force_update
+    ):
+        rc = _open_latest_html_report(args, logger)
+        if rc != 0:
+            sys.exit(rc)
+        return
 
     input_entries: List[Tuple[str, Optional[str]]] = []
     if args.input_file:
@@ -1263,15 +1448,13 @@ async def main():
                 username=username, postfix='_plain.html'
             )
             save_html_report(filename, report_context)
+            _record_last_html_report(Path(filename))
             file_uri = Path(filename).resolve().as_uri()
             query_notify.warning(
                 f'HTML report on all usernames saved in {filename} ({file_uri})'
             )
             if _should_open_html(args):
-                try:
-                    webbrowser.open(file_uri)
-                except Exception as e:
-                    logger.debug('Could not open HTML report in browser: %s', e)
+                _launch_browser(file_uri, logger)
 
         if args.pdf:
             username = username.replace('/', '_')

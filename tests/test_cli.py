@@ -232,3 +232,74 @@ def test_args_html_default_and_flags(argparser):
 
     reenabled = argparser.parse_args(['--no-html', '--html', 'username'])
     assert reenabled.html is True
+
+
+async def test_standalone_open_html_opens_latest_report(tmp_path, monkeypatch, restore_perra_log_level):
+    """`perra --open-html` without targets opens the latest HTML report without loading DB."""
+    import os
+
+    monkeypatch.chdir(tmp_path)
+    reports_dir = tmp_path / 'reports'
+    reports_dir.mkdir()
+    older = reports_dir / 'report_old_plain.html'
+    newest = reports_dir / 'report_new_plain.html'
+    older.write_text('<html>old</html>', encoding='utf-8')
+    newest.write_text('<html>new</html>', encoding='utf-8')
+    os.utime(older, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(newest, ns=(5_000_000_000, 5_000_000_000))
+
+    isolated_state = tmp_path / '.perra' / 'last_html_report.json'
+    real_load = Settings.load
+    monkeypatch.delenv('CI', raising=False)
+    monkeypatch.delenv('PERRA_NO_OPEN', raising=False)
+
+    with mock.patch.object(
+        Settings, 'load', lambda self, paths=None: real_load(self, SETTINGS_FILES_PATHS[:1])
+    ), mock.patch.object(
+        perra_module, '_get_last_html_state_path', return_value=isolated_state
+    ), mock.patch.object(
+        sys, 'argv', ['perra', '--open-html', '--no-update-check']
+    ), mock.patch('perra.perra.PerraDatabase') as db_cls, mock.patch(
+        'perra.perra.webbrowser.open', return_value=True
+    ) as open_browser:
+        await perra_module.main()
+
+    assert db_cls.called is False
+    open_browser.assert_called_once_with(newest.resolve().as_uri())
+
+
+async def test_standalone_open_html_respects_env_and_exits_when_missing(
+    tmp_path, monkeypatch, restore_perra_log_level
+):
+    monkeypatch.chdir(tmp_path)
+    isolated_state = tmp_path / '.perra' / 'last_html_report.json'
+    real_load = Settings.load
+
+    # Missing reports -> exits cleanly with code 1
+    with mock.patch.object(
+        Settings, 'load', lambda self, paths=None: real_load(self, SETTINGS_FILES_PATHS[:1])
+    ), mock.patch.object(
+        perra_module, '_get_last_html_state_path', return_value=isolated_state
+    ), mock.patch.object(
+        sys, 'argv', ['perra', '--open-html', '--no-update-check']
+    ), pytest.raises(SystemExit) as exc:
+        await perra_module.main()
+    assert exc.value.code == 1
+
+    # With PERRA_NO_OPEN=1 and an existing report in -fo dir -> skips browser open, exits cleanly
+    custom_dir = tmp_path / 'out'
+    custom_dir.mkdir()
+    report_file = custom_dir / 'report_alice_plain.html'
+    report_file.write_text('<html>alice</html>', encoding='utf-8')
+    monkeypatch.setenv('PERRA_NO_OPEN', '1')
+
+    with mock.patch.object(
+        Settings, 'load', lambda self, paths=None: real_load(self, SETTINGS_FILES_PATHS[:1])
+    ), mock.patch.object(
+        perra_module, '_get_last_html_state_path', return_value=isolated_state
+    ), mock.patch.object(
+        sys, 'argv', ['perra', '--open-html', '-fo', str(custom_dir), '--no-update-check']
+    ), mock.patch('perra.perra.webbrowser.open') as open_browser:
+        await perra_module.main()
+
+    open_browser.assert_not_called()

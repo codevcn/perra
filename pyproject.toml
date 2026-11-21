@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "perra"
-version = "0.1.0"
+version = "0.2.0"
 description = "🕵️‍♂️ Perra (Persona Radar): collect a dossier on a person by username from thousands of sites."
 authors = ["codevcn", "Soxoj <soxoj@protonmail.com>"]
 readme = "README.md"
