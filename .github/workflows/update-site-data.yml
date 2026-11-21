@@ -1,0 +1,38 @@
+name: Sync upstream Maigret site database
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-sites:
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_UPSTREAM_SITE_SYNC == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e . requests
+
+      - name: Pull upstream soxoj/maigret data.json and regenerate db_meta.json
+        run: |
+          python utils/update_site_data.py --base perra/resources/data.json
+          python utils/generate_db_meta.py
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: sync upstream site database"
+          branch: sync-upstream-sites
+          title: "chore: sync upstream site database"
+          body: "Automated sync of `perra/resources/data.json` from upstream `soxoj/maigret`."

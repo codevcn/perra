@@ -1,0 +1,63 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Editor Configurations
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+
+# Pip
+src/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Logs and backups
+*.log
+*.bak
+
+# Output files, except tracked repo text assets
+report_*.txt
+perra_out/
+!requirements.txt
+!perra/resources/ai_prompt.txt
+
+# Comma-Separated Values (CSV) Reports
+*.csv
+
+# MacOS Folder Metadata File
+.DS_Store
+/reports/
+
+# Testing & Packaging
+.coverage
+dist/
+Output/
+*.exe
+htmlcov/
+/test_*
+
+# Perra runtime files
+/settings.json
+!perra/resources/settings.json
+web_settings.json
+!example.ipynb
+
+# other
+*.egg-info
+build
+LLM
+lib
+/.claude/
+
+# Sphinx i18n: .mo are compiled from .po at build time
+docs/source/locale/**/*.mo
+
+# Secrets
+.env

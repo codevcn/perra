@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Perra (Persona Radar)"
+abstract: "Collect a dossier on a person by username from thousands of sites."
+authors:
+  - name: "codevcn"
+    website: "https://github.com/codevcn"
+  - name: "Soxoj (original Maigret author)"
+    website: "https://github.com/soxoj"
+repository-code: "https://github.com/codevcn/perra"
+url: "https://github.com/codevcn/perra"
+license: MIT
+keywords:
+  - osint
+  - username-search
+  - social-media
+  - investigation

@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: perra-web
+    runtime: image
+    image:
+      url: docker.io/codevcn/perra:web
+    plan: free

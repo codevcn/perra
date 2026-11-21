@@ -1,0 +1,10 @@
+# perra itself is deliberately not listed here. The workflow installs the
+# checkout instead (`pip install ".[pdf]"` from the repo root), so the exe holds
+# the commit it was built from.
+#
+# The pdf extra matters: without xhtml2pdf the `-P` flag raised RuntimeError in
+# every standalone build we ever shipped.
+pefile==2024.8.26 # compatible with pyinstaller 6.22.3 on Windows
+psutil==7.2.2
+pyinstaller==6.22.3
+pywin32-ctypes==0.2.3

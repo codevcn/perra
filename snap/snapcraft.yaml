@@ -1,0 +1,40 @@
+name: perra
+base: core22
+version: '0.1.0'
+summary: Collect a dossier on a person by username from thousands of sites (Persona Radar)
+description: |
+  Perra (Persona Radar) collects a dossier on a person by username only,
+  checking for a huge number of sites and finding available information from
+  web pages without requiring API keys.
+  Built upon upstream Maigret with upstream soxoj/maigret site DB updates.
+license: MIT
+icon: static/perra.png
+website: https://github.com/codevcn/perra
+source-code: https://github.com/codevcn/perra
+grade: stable
+confinement: strict
+
+parts:
+  perra:
+    plugin: python
+    source: .
+    stage-packages:
+      - libcairo2
+      - libfreetype6
+      - libjpeg-turbo8
+      - libopenjp2-7
+      - zlib1g
+    build-packages:
+      - libcairo2-dev
+      - libfreetype6-dev
+      - pkg-config
+      - build-essential
+      - gcc
+    python-requirements: []
+
+apps:
+  perra:
+    command: bin/perra
+    plugs:
+      - network
+      - home
