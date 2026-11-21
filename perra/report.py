@@ -20,7 +20,7 @@ from dateutil.parser import parse as parse_datetime_str
 from jinja2 import Template
 
 from .checking import SUPPORTED_IDS
-from .result import PerraCheckStatus
+from .result import KeywordMatchStatus, PerraCheckStatus
 from .sites import PerraDatabase
 from .utils import is_country_tag, CaseConverter, enrich_link_str
 
@@ -634,6 +634,19 @@ REPORTS GENERATING
 """
 
 
+def _safe_ui_url(uri) -> str:
+    """Allow only clean http(s) URLs in HTML href/src attributes."""
+    if not isinstance(uri, str):
+        return ""
+    cleaned = uri.strip()
+    if any(ch in cleaned for ch in ('"', "'", "<", ">", "\n", "\r")):
+        return ""
+    parsed = urlparse(cleaned)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return cleaned
+
+
 def generate_report_template(is_pdf: bool):
     """
     HTML/PDF template generation
@@ -658,6 +671,8 @@ def generate_report_template(is_pdf: bool):
     template = Template(template_content, autoescape=True)
     template.globals["title"] = CaseConverter.snake_to_title  # type: ignore
     template.globals["detect_link"] = enrich_link_str  # type: ignore
+    template.globals["safe_avatar_url"] = _safe_ui_url  # type: ignore
+    template.globals["safe_external_url"] = lambda u: _safe_ui_url(u) or "#"  # type: ignore
     return template, css_content
 
 
@@ -670,6 +685,23 @@ def generate_report_context(username_results: list):
 
     first_seen = None
 
+    # Metrics & structured slices for the Atlassian Design System HTML UI
+    total_checked = 0
+    claimed_count = 0
+    similar_count = 0
+    keyword_match_count = 0
+    unknown_count = 0
+    available_count = 0
+    illegal_count = 0
+    dns_error_count = 0
+    rate_limit_count = 0
+    bot_protection_count = 0
+    ui_similar: list = []
+    error_buckets: Dict[str, list] = {}
+    discovered_ids: list = []
+    targets: list = []
+    all_tags_set = set()
+
     # moved here to speed up the launch of Perra
     import pycountry
 
@@ -680,12 +712,46 @@ def generate_report_context(username_results: list):
 
         for website_name in results:
             dictionary = results[website_name]
+            total_checked += 1
+            status = dictionary.get("status")
+
             if dictionary.get("is_similar"):
+                similar_count += 1
+                st_tags = list(getattr(status, "tags", None) or [])
+                all_tags_set.update(t for t in st_tags if t and t != "global")
+                ui_similar.append(
+                    {
+                        "site": website_name,
+                        "username": username,
+                        "id_type": id_type,
+                        "url_user": dictionary.get("url_user", ""),
+                        "url_main": dictionary.get("url_main", ""),
+                        "http_status": dictionary.get("http_status", ""),
+                        "tags": st_tags,
+                    }
+                )
                 continue
 
-            status = dictionary.get("status")
             if not status:  # FIXME: currently in case of timeout
+                unknown_count += 1
+                error_buckets.setdefault("Timeout / No status", []).append(website_name)
                 continue
+
+            if status.status == PerraCheckStatus.UNKNOWN:
+                unknown_count += 1
+                reason = _get_result_error_reason(status) or "Unknown"
+                error_buckets.setdefault(reason, []).append(website_name)
+                low = reason.lower()
+                if "dns" in low or "connecting failure" in low:
+                    dns_error_count += 1
+                if "rate" in low or "429" in low or "limit" in low:
+                    rate_limit_count += 1
+                if "captcha" in low or "bot" in low or "cloudflare" in low or "access denied" in low:
+                    bot_protection_count += 1
+            elif status.status == PerraCheckStatus.AVAILABLE:
+                available_count += 1
+            elif status.status == PerraCheckStatus.ILLEGAL:
+                illegal_count += 1
 
             if status.ids_data:
                 dictionary["ids_data"] = status.ids_data
@@ -742,11 +808,15 @@ def generate_report_context(username_results: list):
                 for u, utype in new_usernames.items():
                     if u not in usernames:
                         new_ids.append((u, utype))
+                        discovered_ids.append({"value": u, "type": utype})
                         usernames[u] = {"type": utype}
 
             if status.status == PerraCheckStatus.CLAIMED:
                 found_accounts += 1
+                claimed_count += 1
                 dictionary["found"] = True
+                if getattr(status, "keyword_match_status", None) == KeywordMatchStatus.KEYWORD_FOUND:
+                    keyword_match_count += 1
             else:
                 continue
 
@@ -754,6 +824,16 @@ def generate_report_context(username_results: list):
             if status.tags:
                 for t in status.tags:
                     tags[t] = tags.get(t, 0) + 1
+                    if t and t != "global":
+                        all_tags_set.add(t)
+
+        targets.append(
+            {
+                "username": username,
+                "id_type": id_type,
+                "found_count": found_accounts,
+            }
+        )
 
         brief_text.append(
             f"Search by {id_type} {username} returned {found_accounts} accounts."
@@ -780,6 +860,18 @@ def generate_report_context(username_results: list):
 
     filtered_supposed_data = filter_supposed_data(supposed_data)
 
+    ui_errors = [
+        {
+            "reason": reason,
+            "count": len(sites),
+            "sites": sites[:30],
+            "more": max(0, len(sites) - 30),
+        }
+        for reason, sites in sorted(
+            error_buckets.items(), key=lambda item: len(item[1]), reverse=True
+        )
+    ]
+
     return {
         "username": first_username,
         "brief": brief,
@@ -789,6 +881,24 @@ def generate_report_context(username_results: list):
         "countries_tuple_list": tuple_sort(countries_lists),
         "supposed_data": filtered_supposed_data,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "ui_stats": {
+            "total_checked": total_checked,
+            "claimed_count": claimed_count,
+            "similar_count": similar_count,
+            "keyword_match_count": keyword_match_count,
+            "unknown_count": unknown_count,
+            "available_count": available_count,
+            "illegal_count": illegal_count,
+            "extended_info_count": extended_info_count,
+            "dns_error_count": dns_error_count,
+            "rate_limit_count": rate_limit_count,
+            "bot_protection_count": bot_protection_count,
+            "discovered_ids": discovered_ids,
+            "targets": targets,
+            "all_tags": sorted(all_tags_set),
+        },
+        "ui_similar": ui_similar,
+        "ui_errors": ui_errors,
     }
 
 

@@ -26,10 +26,11 @@ When invoking `perra` from a shell/tool call:
    perra <username> --no-progressbar --no-color
    ```
 2. **Prefer structured report outputs over scraping stdout:**
-   Use `-J ndjson`, `-J simple`, or `-M` (`--md`) with `-fo <output_dir>` so you can read exact structured files reliably:
+   Every CLI scan automatically saves an Atlassian Design System HTML UI report (`report_<username>_plain.html` in `./reports/` or `-fo <output_dir>`) **without opening a browser**. Do **NOT** parse HTML files for agent data extraction — pass `-J ndjson`, `-J simple`, or `-M` (`--md`) to read structured files reliably, or use `--no-html` if HTML output is unwanted:
    ```bash
    perra <username> --no-progressbar --no-color -J ndjson -M -fo ./perra_out
    ```
+   You can return the generated `file:///.../report_<username>_plain.html` path to the user for interactive visual review. **Never pass `--open-html`** unless the user explicitly asks to launch a browser (`--open-html` is also auto-suppressed whenever `--no-progressbar` or `CI` is set).
 3. **Scope scans sensibly:**
    - Default scans the **top 500** sites by traffic rank.
    - Use `--site GitHub,Reddit` or `--tags coding,us` or `--top-sites 200` for fast, focused queries.
@@ -110,13 +111,15 @@ printf "alice\nvk_id:12345\n" | perra --input-file - --no-progressbar --no-color
 | `--cloudflare-bypass` | Route CF-protected sites through configured FlareSolverr | Requires running FlareSolverr & settings config |
 
 ### Report Formats
-Reports are saved in `./reports/` by default (override with `-fo PATH`).
+Reports are saved in `./reports/` by default (override with `-fo PATH`). Since HTML reporting is enabled by default, every CLI scan generates `report_<username>_plain.html` (and saves it silently without launching a browser).
 
 | Flag | Output | Scope |
 | --- | --- | --- |
+| *(default)* / `-H`, `--html` | Self-contained Atlassian Design System HTML UI (`report_<username>_plain.html`): Light/Dark OS theme + manual top-right toggle, Cards & Table views, `Confirmed` / `Similar` / `Errors / Unknown` tabs, instant Top/Bottom scroll buttons | Combined |
+| `--no-html` | Disable default HTML report generation (recommended with `-J ndjson` in tight loops if HTML is unwanted) | Control flag |
+| `--open-html` | Open the generated HTML report in the default browser after completion (automatically suppressed when `--no-progressbar`, `CI`, or `PERRA_NO_OPEN=1` is set — **agents should omit this flag**) | Control flag |
 | `-J simple` / `-J ndjson` | JSON or newline-delimited JSON | Per username (best for agents) |
 | `-M`, `--md` | Markdown summary + account details | Combined across all usernames |
-| `-H`, `--html` | Styled HTML report | Combined |
 | `-P`, `--pdf` | PDF report (requires `[pdf]` extra / included in installer) | Combined |
 | `-G`, `--graph` | Interactive `vis-network` HTML graph | Combined |
 | `--neo4j` | Idempotent `*_neo4j.cypher` import script | Combined |

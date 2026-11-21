@@ -84,7 +84,11 @@ def is_country_tag(tag: str) -> bool:
     return bool(re.match("^([a-zA-Z]){2}$", tag)) or tag == "global"
 
 
-def enrich_link_str(link: str) -> str:
+def enrich_link_str(link: Any) -> str:
+    if link is None:
+        return ""
+    if not isinstance(link, str):
+        return str(link)
     link = link.strip()
     if link.startswith("www.") or (link.startswith("http") and "//" in link):
         # escape the link to avoid XSS; Markup keeps the <a> tag itself intact

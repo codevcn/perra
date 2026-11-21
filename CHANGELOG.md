@@ -8,6 +8,7 @@
 - Packaged Windows standalone CLI via PyInstaller `--onedir` and Inno Setup 6 installer (`PerraSetup-0.1.0-win64.exe`), registering `perra` on user `PATH` and installing the `skills/perra` guide for Antigravity, Codex, and Claude Code.
 - Added non-blocking background CLI release check (`cli_autoupdate_check`, `--no-update-check`) and `perra update` self-upgrade command targeting `codevcn/perra` releases with SHA-256 verification.
 - Kept site database auto-updates (`db_updater`) synchronized with upstream `soxoj/maigret`.
+- Enabled interactive **Atlassian Design System (ADS)** HTML reporting by default (`./reports/report_<username>_plain.html`) without auto-opening a browser; added `--no-html` and `--open-html` (suppressed with `--no-progressbar` / `CI` / `PERRA_NO_OPEN=1`), automatic OS Light/Dark theme + header toggle, Confirmed/Similar/Errors tabs, Cards/Table views, and instant bottom-right Scroll-to-Top / Scroll-to-Bottom controls.
 
 ---
 

@@ -54,7 +54,7 @@
     "graph_report": false,
     "neo4j_report": false,
     "pdf_report": false,
-    "html_report": false,
+    "html_report": true,
     "md_report": false,
     "openai_api_key": "",
     "openai_model": "gpt-5.4",

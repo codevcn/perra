@@ -35,7 +35,7 @@ Perra is designed for interactive analysts, security researchers, automated pipe
 | **Site Coverage** | **9,535** bundled site probes (`top 500` by default; full DB with `-a`) |
 | **Identifier Types (12)** | `username`, `yandex_public_id`, `gaia_id`, `vk_id`, `ok_id`, `wikimapia_uid`, `steam_id`, `uidme_uguid`, `yelp_userid`, `orcid`, `qq_id`, `bilibili_id` |
 | **Profile Extraction** | Parses public profile fields (`bio`, `fullname`, `uid`, linked URLs/handles) and follows extracted IDs recursively (`--no-recursion` to disable) |
-| **Report Formats (9)** | JSON (`-J simple` / `-J ndjson`), Markdown (`-M`), HTML (`-H`), PDF (`-P`), interactive `vis-network` Graph (`-G`), Neo4j Cypher (`--neo4j`), CSV (`-C`), TXT (`-T`), XMind (`-X`) |
+| **Report Formats (9)** | **Default Atlassian Design System HTML UI** (`report_<user>_plain.html`, Light/Dark OS theme + instant scroll buttons, no auto-open; disable with `--no-html` or open with `--open-html`), JSON (`-J simple` / `-J ndjson`), Markdown (`-M`), PDF (`-P`), interactive `vis-network` Graph (`-G`), Neo4j Cypher (`--neo4j`), CSV (`-C`), TXT (`-T`), XMind (`-X`) |
 | **Network & Anti-Bot** | Async HTTP (`aiohttp`) + TLS-impersonating `curl_cffi`, HTTP/SOCKS proxies (`-p`), Tor `.onion` (`--tor-proxy`), I2P ( `--i2p-proxy`), optional FlareSolverr (`--cloudflare-bypass`), selectable DNS resolver (`--dns-resolver async\|threaded`) |
 | **Web UI & AI Summary** | Local Flask Web UI with live SSE progress (`perra --web 5000`) and optional OpenAI-compatible dossier summary (`--ai`) |
 | **AI Agent Skill** | Built-in `skills/perra/SKILL.md` for **Antigravity**, **Codex**, and **Claude Code** |
@@ -148,12 +148,25 @@ perra --input-file targets.txt -M
 perra --parse https://github.com/torvalds
 ```
 
-### Generate Multiple Report Formats
+### Generate Interactive HTML UI & Additional Report Formats
+
+Every CLI scan automatically saves an offline **Atlassian Design System HTML report** (`report_<username>_plain.html`) into `./reports/` (or `-fo PATH`) without opening a browser tab:
 
 ```bash
+# Default run saves ./reports/report_torvalds_plain.html automatically (no browser launch)
+perra torvalds --site GitHub --no-recursion
+
+# Open the generated HTML report in your default browser once finished
+perra torvalds --site GitHub --no-recursion --open-html
+
+# Disable default HTML report generation (e.g., when streaming JSON only)
+perra torvalds --site GitHub --no-recursion --no-html -J ndjson
+
 # Combine HTML, PDF, Markdown, NDJSON, Graph, Neo4j Cypher, CSV, TXT, and XMind
-perra torvalds --site GitHub --no-recursion -fo ./reports -H -P -X -J ndjson -M -C -T -G --neo4j
+perra torvalds --site GitHub --no-recursion -fo ./reports -P -X -J ndjson -M -C -T -G --neo4j
 ```
+
+The HTML UI follows your OS theme (`prefers-color-scheme`) with a top-right Light/Dark toggle, Cards & Table views, `Confirmed` / `Similar` / `Errors / Unknown` tabs, and bottom-right instant Top/Bottom scroll buttons. Note `--open-html` is automatically suppressed when `--no-progressbar`, `CI`, or `PERRA_NO_OPEN=1` is active.
 
 ### Launch Local Web Interface
 
@@ -238,7 +251,7 @@ Build the PyInstaller `--onedir` bundle and compile the Inno Setup 6 installer (
 
 ## AI Agent Integration (`skills/perra`)
 
-The skill file [skills/perra/SKILL.md](skills/perra/SKILL.md) documents non-interactive invocation rules (`--no-progressbar --no-color`), structured output flags (`-J ndjson`, `-M`), DNS fallback on Windows, error interpretation (`CLAIMED` vs `AVAILABLE` vs `UNKNOWN`), and false-positive safeguards.
+The skill file [skills/perra/SKILL.md](skills/perra/SKILL.md) documents non-interactive invocation rules (`--no-progressbar --no-color`), default silent HTML UI output (`--no-html` to omit, never `--open-html`), structured output flags (`-J ndjson`, `-M`), DNS fallback on Windows, error interpretation (`CLAIMED` vs `AVAILABLE` vs `UNKNOWN`), and false-positive safeguards.
 
 Deploy or refresh the skill manually for all three agents or a subset:
 

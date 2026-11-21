@@ -27,7 +27,8 @@ DEFAULT_ARGS: Dict[str, Any] = {
     'disable_recursive_search': False,
     'enrich': False,
     'folderoutput': 'reports',
-    'html': False,
+    'html': True,
+    'open_html': False,
     'graph': False,
     'neo4j': False,
     'id_type': 'username',
@@ -214,3 +215,20 @@ async def test_web_mode_runs_on_settings_port(cli_args, restore_perra_log_level)
         await perra_module.main()
 
     assert run.call_args.kwargs['port'] == 8080
+
+
+def test_args_html_default_and_flags(argparser):
+    default_parsed = argparser.parse_args(['username'])
+    assert default_parsed.html is True
+    assert default_parsed.open_html is False
+
+    disabled = argparser.parse_args(['--no-html', 'username'])
+    assert disabled.html is False
+    assert disabled.open_html is False
+
+    explicit_open = argparser.parse_args(['-H', '--open-html', 'username'])
+    assert explicit_open.html is True
+    assert explicit_open.open_html is True
+
+    reenabled = argparser.parse_args(['--no-html', '--html', 'username'])
+    assert reenabled.html is True

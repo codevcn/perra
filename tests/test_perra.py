@@ -384,3 +384,28 @@ def test_save_db_safely_writes_when_target_is_writable(default_db, tmp_path):
 
     assert save_db_safely(default_db, str(target), logger) is True
     assert "sites" in json.loads(target.read_text())
+
+
+@pytest.mark.parametrize(
+    ("args_overrides", "env", "expected"),
+    [
+        ({}, {}, False),
+        ({"open_html": True}, {}, True),
+        ({"open_html": True, "html": False}, {}, False),
+        ({"open_html": True, "no_progressbar": True}, {}, False),
+        ({"open_html": True}, {"CI": "true"}, False),
+        ({"open_html": True}, {"CI": "1"}, False),
+        ({"open_html": True}, {"CI": "false"}, True),
+        ({"open_html": True}, {"CI": "0"}, True),
+        ({"open_html": True}, {"PERRA_NO_OPEN": "1"}, False),
+    ],
+)
+def test_should_open_html(args_overrides, env, expected):
+    from types import SimpleNamespace
+    from perra.perra import _should_open_html
+
+    args = SimpleNamespace(html=True, open_html=False, no_progressbar=False)
+    for k, v in args_overrides.items():
+        setattr(args, k, v)
+
+    assert _should_open_html(args, environ=env) is expected

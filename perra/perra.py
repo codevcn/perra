@@ -7,8 +7,10 @@ import logging
 import os
 import sys
 import platform
+import webbrowser
 from argparse import ArgumentParser, RawDescriptionHelpFormatter, SUPPRESS
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 import os.path as path
 from perra.utils import extract_usernames, read_input_file
 
@@ -505,7 +507,21 @@ def setup_arguments_parser(settings: Settings):
         action="store_true",
         dest="html",
         default=settings.html_report,
-        help="Create an HTML report file (general report on all usernames).",
+        help="Create an interactive Atlassian-styled HTML UI report (enabled by default).",
+    )
+    report_group.add_argument(
+        "--no-html",
+        action="store_false",
+        dest="html",
+        help="Disable automatic generation of the HTML UI report.",
+    )
+    report_group.add_argument(
+        "--open-html",
+        action="store_true",
+        dest="open_html",
+        default=False,
+        help="Open the generated HTML UI report in the default browser "
+        "(auto-disabled when --no-progressbar or CI env var is set).",
     )
     report_group.add_argument(
         "-X",
@@ -673,6 +689,24 @@ def save_db_safely(db: PerraDatabase, db_file: str, logger) -> bool:
     except OSError as e:
         logger.debug(f'Could not write the database to {db_file}: {e}')
         return False
+
+
+def _should_open_html(
+    args: Any, environ: Optional[Mapping[str, str]] = None
+) -> bool:
+    """Open the generated HTML UI report only when explicitly requested via --open-html
+    and not running in a headless/non-interactive (--no-progressbar / CI) session."""
+    if not getattr(args, "open_html", False) or not getattr(args, "html", False):
+        return False
+    if getattr(args, "no_progressbar", False):
+        return False
+    env = os.environ if environ is None else environ
+    if env.get("PERRA_NO_OPEN") == "1":
+        return False
+    ci_val = (env.get("CI") or "").strip().lower()
+    if ci_val and ci_val not in ("0", "false", "no"):
+        return False
+    return True
 
 
 async def main():
@@ -1229,7 +1263,15 @@ async def main():
                 username=username, postfix='_plain.html'
             )
             save_html_report(filename, report_context)
-            query_notify.warning(f'HTML report on all usernames saved in {filename}')
+            file_uri = Path(filename).resolve().as_uri()
+            query_notify.warning(
+                f'HTML report on all usernames saved in {filename} ({file_uri})'
+            )
+            if _should_open_html(args):
+                try:
+                    webbrowser.open(file_uri)
+                except Exception as e:
+                    logger.debug('Could not open HTML report in browser: %s', e)
 
         if args.pdf:
             username = username.replace('/', '_')

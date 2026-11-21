@@ -1451,3 +1451,219 @@ def test_get_plaintext_report_minimal():
     assert 'Nothing to report.' in out
     assert 'Countries:' not in out
     assert 'Interests' not in out
+
+
+def test_html_report_ads_ui_elements_and_stats():
+    """Verify unified ADS HTML UI rendering, stats, theme toggle, instant scroll, and URL safety."""
+    from perra.result import KeywordMatchStatus
+
+    github_site = PerraSite(
+        'GitHub',
+        {
+            'tags': ['coding', 'us'],
+            'urlMain': 'https://github.com/',
+            'url': 'https://github.com/{username}',
+            'alexaRank': 85,
+        },
+    )
+    similar_site = PerraSite(
+        'SoundCloud',
+        {
+            'tags': ['music'],
+            'urlMain': 'https://soundcloud.com/',
+            'url': 'https://soundcloud.com/{username}',
+            'similarSearch': True,
+            'alexaRank': 250,
+        },
+    )
+    dns_site = PerraSite(
+        'ExampleDNS',
+        {
+            'tags': ['social'],
+            'urlMain': 'https://example-dns.test/',
+            'url': 'https://example-dns.test/{username}',
+            'alexaRank': 1200,
+        },
+    )
+    rate_site = PerraSite(
+        'ExampleRate',
+        {
+            'tags': ['blog'],
+            'urlMain': 'https://example-rate.test/',
+            'url': 'https://example-rate.test/{username}',
+            'alexaRank': 900,
+        },
+    )
+    avail_site = PerraSite(
+        'GitLab',
+        {
+            'tags': ['coding'],
+            'urlMain': 'https://gitlab.com/',
+            'url': 'https://gitlab.com/{username}',
+            'alexaRank': 400,
+        },
+    )
+
+    claimed_res = PerraCheckResult(
+        'alice',
+        'GitHub',
+        'https://github.com/alice',
+        PerraCheckStatus.CLAIMED,
+        tags=['coding', 'us'],
+        context='keyword matched',
+    )
+    claimed_res.keyword_match_status = KeywordMatchStatus.KEYWORD_FOUND
+    claimed_res.ids_data = {
+        'fullname': 'Alice Example',
+        'bio': 'Security researcher',
+        'followers': 42,
+        'image': 'https://avatars.githubusercontent.com/u/1?v=4',
+        'reddit_username': 'alice_r',
+    }
+
+    bad_res = PerraCheckResult(
+        'alice',
+        'BadScheme',
+        'javascript:alert(1)',
+        PerraCheckStatus.CLAIMED,
+    )
+    bad_res.ids_data = {'image': 'javascript:alert(2)', 'name': 'Evil'}
+
+    similar_res = PerraCheckResult(
+        'alice',
+        'SoundCloud',
+        'https://soundcloud.com/alice',
+        PerraCheckStatus.CLAIMED,
+        tags=['music'],
+    )
+    dns_err_res = PerraCheckResult(
+        'alice',
+        'ExampleDNS',
+        'https://example-dns.test/alice',
+        PerraCheckStatus.UNKNOWN,
+        error=CheckError('DNS', 'Connecting failure'),
+        tags=['social'],
+    )
+    rate_err_res = PerraCheckResult(
+        'alice',
+        'ExampleRate',
+        'https://example-rate.test/alice',
+        PerraCheckStatus.UNKNOWN,
+        error=CheckError('HTTP', 'HTTP 429 Too Many Requests'),
+        tags=['blog'],
+    )
+    avail_res = PerraCheckResult(
+        'alice',
+        'GitLab',
+        'https://gitlab.com/alice',
+        PerraCheckStatus.AVAILABLE,
+        tags=['coding'],
+    )
+
+    username_results = [
+        (
+            'alice',
+            'username',
+            {
+                'GitHub': {
+                    'site': github_site,
+                    'status': claimed_res,
+                    'url_user': 'https://github.com/alice',
+                    'http_status': 200,
+                    'ids_data': {
+                        'fullname': 'Alice Example',
+                        'bio': 'Security researcher',
+                        'image': 'https://avatars.githubusercontent.com/u/1?v=4',
+                        'reddit_username': 'alice_r',
+                    },
+                    'ids_links': ['https://www.reddit.com/user/alice_r'],
+                    'ids_usernames': {'alice_r': 'username'},
+                },
+                'SoundCloud': {
+                    'site': similar_site,
+                    'status': similar_res,
+                    'url_user': 'https://soundcloud.com/alice',
+                    'http_status': 200,
+                    'is_similar': True,
+                    'ids_data': {},
+                },
+                'ExampleDNS': {
+                    'site': dns_site,
+                    'status': dns_err_res,
+                    'url_user': 'https://example-dns.test/alice',
+                },
+                'ExampleRate': {
+                    'site': rate_site,
+                    'status': rate_err_res,
+                    'url_user': 'https://example-rate.test/alice',
+                    'http_status': 429,
+                },
+                'GitLab': {
+                    'site': avail_site,
+                    'status': avail_res,
+                    'url_user': 'https://gitlab.com/alice',
+                    'http_status': 404,
+                },
+                'BadScheme': {
+                    'site': github_site,
+                    'status': bad_res,
+                    'url_user': 'javascript:alert(1)',
+                    'ids_data': bad_res.ids_data,
+                },
+            },
+        )
+    ]
+
+    context = generate_report_context(username_results)
+    stats = context['ui_stats']
+    assert stats['total_checked'] == 6
+    assert stats['claimed_count'] == 2
+    assert stats['similar_count'] == 1
+    assert stats['keyword_match_count'] == 1
+    assert stats['unknown_count'] == 2
+    assert stats['available_count'] == 1
+    assert stats['dns_error_count'] == 1
+    assert stats['rate_limit_count'] == 1
+    assert stats['extended_info_count'] >= 1
+    assert any(item.get('value') == 'alice_r' for item in stats['discovered_ids'])
+    assert len(context['ui_similar']) == 1
+    assert len(context['ui_errors']) == 2
+
+    filename = 'report_ads_ui_test.html'
+    save_html_report(filename, context)
+    with open(filename, encoding='utf-8') as f:
+        html = f.read()
+
+    # ADS styling, OS theme + toggle, and instant scroll buttons
+    assert '--ds-surface' in html
+    assert 'data-color-mode' in html
+    assert 'prefers-color-scheme: dark' in html
+    assert 'id="theme-toggle-btn"' in html
+    assert 'id="scroll-top-btn"' in html
+    assert 'id="scroll-bottom-btn"' in html
+    assert "behavior: 'instant'" in html or 'behavior: "instant"' in html or "scrollToTopBtn" in html
+    assert "'instant'" in html
+
+    # Interactive controls & tabs
+    assert 'data-tab="claimed"' in html
+    assert 'data-tab="similar"' in html
+    assert 'data-tab="errors"' in html
+    assert 'id="view-cards-btn"' in html
+    assert 'id="view-table-btn"' in html
+    assert 'id="copy-urls-btn"' in html
+    assert 'id="search-input"' in html
+    assert 'id="sort-select"' in html
+
+    # Offline & clean branding guarantees
+    assert 'bootstrapcdn.com' not in html
+    assert 'jquery.com' not in html
+    assert 'imgur.com' not in html
+
+    # Unsafe javascript: scheme stripped from href/src
+    assert 'href="javascript:' not in html.lower()
+    assert 'src="javascript:' not in html.lower()
+
+    # Extracted profile & diagnostic info present
+    assert 'Alice Example' in html
+    assert 'Connecting failure' in html
+    assert 'HTTP 429' in html
